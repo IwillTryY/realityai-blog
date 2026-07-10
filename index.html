@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RealityAI — Blog</title>
+<title>RealityAI - Blog</title>
 <style>
   :root {
     --bg: #0d1117; --fg: #c9d1d9; --muted: #8b949e;
@@ -31,11 +31,11 @@
 </head>
 <body>
 
-<div class="site-title">RealityAI — Research Blog</div>
+<div class="site-title">RealityAI - Research Blog</div>
 
 <h1>20x Compression and $0.20 Training Cost of Language Models? What I Actually Measured on One GPU</h1>
 
-<p class="byline">by Kanav — July 2026</p>
+<p class="byline">by Kanav - July 2026</p>
 
 <p>When I first started learning ML three months ago, the message was straightforward: you need clusters of GPUs and six-figure budgets to train language models. I am 16. I do not have a cluster. I have a mobile RTX 3050 and access to cloud GPUs when the budget allows.</p>
 
@@ -45,13 +45,13 @@
 
 <h2>The Approach</h2>
 
-<p>Transformers have redundant structure by design. There is nothing in gradient descent telling you "this weight is used for exactly one thing" — so it hedges, storing the same information in multiple copies. By removing that redundancy and scaling capacity only when necessary, you should get models that are smaller, faster and cheaper to train, without sacrificing quality.</p>
+<p>Transformers have redundant structure by design. There is nothing in gradient descent telling you "this weight is used for exactly one thing" - so it hedges, storing the same information in multiple copies. By removing that redundancy and scaling capacity only when necessary, you should get models that are smaller, faster and cheaper to train, without sacrificing quality.</p>
 
 <p>I have tested this approach in two ways: through compression (how small can the parameters be made to take less space), and through progressively scaling capacity during training (instead of training a model at its final capacity from step one).</p>
 
 <hr>
 
-<h2>Result 1: Compression — 12.8M → 7.5M Parameters (~5.1x, ~20x with FP8)</h2>
+<h2>Result 1: Compression - 12.8M -> 7.5M Parameters (~5.1x, ~20x with FP8)</h2>
 
 <p>Architecture: weight sharing across 6 layers (each layer stores only its own bias/norm terms), sparse+low-rank factorization per weight matrix (<code>W = L@R^T + S</code>, 2:8 structured sparsity), FP8 storage.</p>
 
@@ -64,24 +64,24 @@
   <li><strong>Compression ratio:</strong> 5.1x before FP8, ~20x with FP8</li>
 </ul>
 
-<p>This run is the source of all the compression numbers above. As much as it might sound silly to state, I should be transparent about this run being <em>training quality-wise</em> plateaued at loss 9 on the word-level task — word-level vocabulary is simply harder to cover with this small a model, and I do not want to create any false impressions here. The compression ratio is solid and reproducible — the quality is provided by the next two runs below.</p>
+<p>This run is the source of all the compression numbers above. As much as it might sound silly to state, I should be transparent about this run being <em>training quality-wise</em> plateaued at loss 9 on the word-level task - word-level vocabulary is simply harder to cover with this small a model, and I do not want to create any false impressions here. The compression ratio is solid and reproducible - the quality is provided by the next two runs below.</p>
 
 <hr>
 
-<h2>Result 2: Smooth Convergence, Byte-Level Tokenizer — Loss 288 → 3.7</h2>
+<h2>Result 2: Smooth Convergence, Byte-Level Tokenizer - Loss 288 -> 3.7</h2>
 
 <p>Exactly the same family of architectures, byte-level tokenizer (256 vocabulary) instead of word-level one, Shakespeare text as a dataset.</p>
 
 <ul>
-  <li><strong>Loss:</strong> 288 → 3.7, smooth descent</li>
+  <li><strong>Loss:</strong> 288 -> 3.7, smooth descent</li>
   <li><strong>Hardware:</strong> Verda RTX PRO 6000</li>
 </ul>
 
-<p>This run shows that the plateau in Result 1 was a tokenizer/task-related issue, not the problem of the architecture family — the same stack converges smoothly given the right task.</p>
+<p>This run shows that the plateau in Result 1 was a tokenizer/task-related issue, not the problem of the architecture family - the same stack converges smoothly given the right task.</p>
 
 <hr>
 
-<h2>Result 3: Best Case Scenario — Code Model, Loss 536 → 4.6, Cost $0.20</h2>
+<h2>Result 3: Best Case Scenario - Code Model, Loss 536 -> 4.6, Cost $0.20</h2>
 
 <p>Similar byte-level tokenizer (2563 vocab), from scratch (no pretrained weights or fine-tuning) on CPython Standard Library + Flask + Requests.</p>
 
@@ -103,23 +103,23 @@
 
 <p>Apart from the above training runs, I have tested the compression stack on the transformer and compared it directly against a corresponding dense baseline.</p>
 
-<p><strong>Result: 44x compression, loss 2.86 vs 2.86 dense.</strong> No tradeoff between size and quality here — strictly better on the size, exactly equal on the loss.</p>
+<p><strong>Result: 44x compression, loss 2.86 vs 2.86 dense.</strong> No tradeoff between size and quality here - strictly better on the size, exactly equal on the loss.</p>
 
-<p>I would consider 44x the floor instead of a hard number — smaller overheads in architecture (layer norms, embeddings) will matter less when the model is bigger, but I have not tested that yet, so let me not claim any numbers here. 44x with equal loss is the number that is measured.</p>
+<p>I would consider 44x the floor instead of a hard number - smaller overheads in architecture (layer norms, embeddings) will matter less when the model is bigger, but I have not tested that yet, so let me not claim any numbers here. 44x with equal loss is the number that is measured.</p>
 
 <hr>
 
 <h2>Individual Components Validation: MLP and Synthetic Runs</h2>
 
-<p>Below are the validation experiments of the same individual components of the approach used in Results 1–4, but tested on the MLP architecture and/or synthetic datasets, rather than on the transformers and the real text. I keep them separate because they use a different architecture/task, although the techniques behind them are the same. They are actual logged results — but not yet tested on transformers/text yet.</p>
+<p>Below are the validation experiments of the same individual components of the approach used in Results 1-4, but tested on the MLP architecture and/or synthetic datasets, rather than on the transformers and the real text. I keep them separate because they use a different architecture/task, although the techniques behind them are the same. They are actual logged results - but not yet tested on transformers/text yet.</p>
 
-<p><strong>Compression, MLP Regression (6-layer, 128→512→32, synthetic task, 60 epochs):</strong> 92.2x compression, loss 1.0799 vs 1.1154 baseline — no quality sacrifice for compression.</p>
+<p><strong>Compression, MLP Regression (6-layer, 128->512->32, synthetic task, 60 epochs):</strong> 92.2x compression, loss 1.0799 vs 1.1154 baseline - no quality sacrifice for compression.</p>
 
-<p><strong>Progressive rank growth (MLP Regression, RTX 3050):</strong> sigmoid schedule of rank growth (r=1→32, capping) vs fixed rank baselines. The best fixed baseline (r=96) converged to loss 1.804; the progressive schedule resulted in loss 1.330 — <strong>26% lower loss, 88% lower average rank</strong> (average rank 11.6 vs fixed 96). Strictly better on both axes — not yet tested on a transformer.</p>
+<p><strong>Progressive rank growth (MLP Regression, RTX 3050):</strong> sigmoid schedule of rank growth (r=1->32, capping) vs fixed rank baselines. The best fixed baseline (r=96) converged to loss 1.804; the progressive schedule resulted in loss 1.330 - <strong>26% lower loss, 88% lower average rank</strong> (average rank 11.6 vs fixed 96). Strictly better on both axes - not yet tested on a transformer.</p>
 
-<p><strong>Progressive attention (synthetic Markov data, RTX 3050):</strong> Linformer k=32 projection hit loss 7.43 vs 7.80 for full attention — 5% lower loss. The same caveat applies: synthetic data, not yet verified on the real text.</p>
+<p><strong>Progressive attention (synthetic Markov data, RTX 3050):</strong> Linformer k=32 projection hit loss 7.43 vs 7.80 for full attention - 5% lower loss. The same caveat applies: synthetic data, not yet verified on the real text.</p>
 
-<p>All three experiments show the same trend as Results 1 and 4 above: the compression/progressive techniques are not hurting quality, but improving it. This consistency across MLP and transformer, as well as across synthetic and real tasks, makes me confident that the mechanism is working instead of being a fluke specific to one architecture — but the above MLP results need to be reproduced with the transformers.</p>
+<p>All three experiments show the same trend as Results 1 and 4 above: the compression/progressive techniques are not hurting quality, but improving it. This consistency across MLP and transformer, as well as across synthetic and real tasks, makes me confident that the mechanism is working instead of being a fluke specific to one architecture - but the above MLP results need to be reproduced with the transformers.</p>
 
 <hr>
 
@@ -128,8 +128,8 @@
 <p>Two hardware tests, both done on Verda RTX PRO 6000 and both at the same fixed batch size of 24 to make sure the comparison is apples-to-apples:</p>
 
 <ul>
-  <li><strong>Scaling width:</strong> <code>d=128</code> vs <code>d=768</code>, same architecture otherwise — 4,200,829 vs 241,366 tok/s, <strong>17.4x</strong> the throughput. This is the scaling gain that is available to the width curriculum during the early training phase.</li>
-  <li><strong><code>torch.compile</code>:</strong> done at <code>d=128</code> — 11,189,451 vs 4,200,829 tok/s, <strong>2.66x</strong> improvement from compilation alone. Confirmed at <code>d=128</code>; may not apply at higher widths, not checked yet.</li>
+  <li><strong>Scaling width:</strong> <code>d=128</code> vs <code>d=768</code>, same architecture otherwise - 4,200,829 vs 241,366 tok/s, <strong>17.4x</strong> the throughput. This is the scaling gain that is available to the width curriculum during the early training phase.</li>
+  <li><strong><code>torch.compile</code>:</strong> done at <code>d=128</code> - 11,189,451 vs 4,200,829 tok/s, <strong>2.66x</strong> improvement from compilation alone. Confirmed at <code>d=128</code>; may not apply at higher widths, not checked yet.</li>
 </ul>
 
 <hr>
@@ -139,7 +139,7 @@
 <p>Clear statement of failures since I believe it is more valuable than claims of success:</p>
 
 <ul>
-  <li><strong>Hash-based address sweep</strong> (0.001x to 128x scale): dead at 10x — collisions (birthday paradox).</li>
+  <li><strong>Hash-based address sweep</strong> (0.001x to 128x scale): dead at 10x - collisions (birthday paradox).</li>
   <li><strong>CHL/Equilibrium Propagation with the compressed transformer</strong>: loss stalled at 90.5. Dead end, at least in the form I tried.</li>
 </ul>
 
@@ -150,9 +150,9 @@
 <p>To distinguish between my experiments and plans clearly:</p>
 
 <ul>
-  <li><strong>10B parameter dense-equivalent scale</strong> — estimated at ~4.4 hours on one GPU based on speedup from the progressive curriculum, but not attempted yet.</li>
-  <li><strong>Self-play correction loop</strong> (model generates, verifier validates, errors become training data) — infrastructure ready but unwired; with 168K-parameter base model the verifier is too weak. Needs a bigger base model.</li>
-  <li><strong>B300-class hardware</strong> — never used before.</li>
+  <li><strong>10B parameter dense-equivalent scale</strong> - estimated at ~4.4 hours on one GPU based on speedup from the progressive curriculum, but not attempted yet.</li>
+  <li><strong>Self-play correction loop</strong> (model generates, verifier validates, errors become training data) - infrastructure ready but unwired; with 168K-parameter base model the verifier is too weak. Needs a bigger base model.</li>
+  <li><strong>B300-class hardware</strong> - never used before.</li>
 </ul>
 
 <hr>
@@ -160,16 +160,16 @@
 <h2>Why Verda Made This Possible</h2>
 
 <ol>
-  <li><strong>Immediate GPU access</strong> — no waitlist, no application process. <code>git clone</code> and you're running in minutes.</li>
-  <li><strong>Pricing predictability</strong> — $1.17/hour means a 10 minute run costs 19 cents, so I could iterate without worrying about a budget.</li>
-  <li><strong>Blackwell-grade hardware at this price point</strong> — native FP8 tensor cores on Verda RTX PRO 6000 make compression savings real through speed.</li>
+  <li><strong>Immediate GPU access</strong> - no waitlist, no application process. <code>git clone</code> and you're running in minutes.</li>
+  <li><strong>Pricing predictability</strong> - $1.17/hour means a 10 minute run costs 19 cents, so I could iterate without worrying about a budget.</li>
+  <li><strong>Blackwell-grade hardware at this price point</strong> - native FP8 tensor cores on Verda RTX PRO 6000 make compression savings real through speed.</li>
 </ol>
 
 <hr>
 
 <h2>Next Steps</h2>
 
-<p>Three months ago I have never touched PyTorch. Today I have a working compression stack with two independent confirmations, a curriculum training technique with measured Pareto improvement over baselines, and $0.20 convergence on the code task. The self-play loop and larger scale are the next things I am working on — not any claims yet.</p>
+<p>Three months ago I have never touched PyTorch. Today I have a working compression stack with two independent confirmations, a curriculum training technique with measured Pareto improvement over baselines, and $0.20 convergence on the code task. The self-play loop and larger scale are the next things I am working on - not any claims yet.</p>
 
 <p>If you are interested in trying out the compression + curriculum approach yourself, the Verda RTX PRO 6000 instances are the one I used. PyTorch 2.x with BF16 autocast will get you most of the way on training; the compression stack specifics are what I am refining before publishing them in full.</p>
 
