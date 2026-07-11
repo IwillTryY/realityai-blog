@@ -101,6 +101,8 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 
 <p>Dense baseline gap: 0.6504 (consistent ±0.0001 across runs).</p>
 
+<p><img src="spark-benchmark.png" alt="Spark Engine benchmark terminal output" style="max-width:100%;border:1px solid var(--border);border-radius:6px;margin:1rem 0;"></p>
+
 <p>The result is stable. Six independent runs, six different hyperparameter settings, all within a 0.002 loss band. The optimum is at the right edge of the curve. The outlier on the left edge (c=0.35, 8x speedup) is the wrong end - aggressive early growth makes the model spend too much time near full capacity. The schedule matters. 65% is where it works best and that's reproducible.</p>
 
 <hr>
@@ -118,6 +120,8 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 </ul>
 
 <hr>
+
+<p><img src="training-output.png" alt="Spark training logs showing progressive depth and rank growth" style="max-width:100%;border:1px solid var(--border);border-radius:6px;margin:1rem 0;"></p>
 
 <h2>What Didn't Work</h2>
 
