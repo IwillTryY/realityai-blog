@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RealityAI - Research Blog</title>
-<meta name="description" content="The Spark Engine: 35x faster training, 29x smaller storage, parity quality.">
+<meta name="description" content="The Spark Engine: 8x faster training, 29x smaller storage, parity quality.">
 <meta property="og:title" content="The Spark Engine - RealityAI Research Blog">
-<meta property="og:description" content="Progressive depth + progressive rank on the same sigmoid schedule. 35x faster, 29x smaller, within 2% quality. Verified across six independent runs.">
+<meta property="og:description" content="Progressive depth + progressive rank on the same sigmoid schedule. 8x faster, 29x smaller, within 2% quality. Verified across six independent runs.">
 <meta property="og:type" content="article">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>S</text></svg>">
 <style>
@@ -34,13 +34,13 @@
 
 <div class="site-title">RealityAI - Research Blog</div>
 
-<h1>The Spark Engine: 35x Faster Training, 29x Smaller Storage, Parity Quality</h1>
+<h1>The Spark Engine: 8x Faster Training, 29x Smaller Storage, Parity Quality</h1>
 
 <p class="byline">by Kanav Vashisht - July 2026</p>
 
 <p>I started learning ML three months ago. I'm 16. I don't have a cluster. What I have is a laptop with an RTX 3050, an idea about how training should work, and the willingness to kill every approach that doesn't hold up to measurement.</p>
 
-<p>This post describes the Spark Engine: a training system that runs 35 times faster than standard training, stores models 29 times smaller, and produces quality within 2% of the dense baseline. Every number is measured on real hardware. None are extrapolated.</p>
+<p>This post describes the Spark Engine: a training system that runs 8 times faster than standard training, stores models 29 times smaller, and produces quality within 2% of the dense baseline. Every number is measured on real hardware. None are extrapolated.</p>
 
 <hr>
 
@@ -72,7 +72,7 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 
 <p>Both depth and rank follow the same sigmoid curve centered at 65% of training. The model grows slowly at first, accelerates through the middle, and plateaus at maximum capacity for final refinement. ~70% of all training steps run below half capacity.</p>
 
-<p>The schedule matters enormously. Moving the center to 35% (aggressive early growth) drops the speedup from 36x to 8x because the model spends too many steps near full capacity. Moving it past 65% produces marginally less speedup because there aren't enough steps left to absorb the growth. 65% is the optimum. The curve has a clear peak.</p>
+<p>The schedule varies quality slightly but speedup stays consistent at 8x across all centers tested. The optimizer state overhead — AdamW tracking momentum and variance for every pre-allocated parameter — dominates the runtime regardless of which dimensions are active. Forward pass savings from sliced rank are real, but they don't shrink the optimizer loop. Moving it past 65% produces marginally less speedup because there aren't enough steps left to absorb the growth. 65% is the optimum. The curve has a clear peak.</p>
 
 <hr>
 
@@ -86,24 +86,24 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 
 <div class="result-box">
 <strong>Best result (center=0.65):</strong> 0.6615 Spark loss vs 0.6504 dense loss.
-<strong>-1.7% quality gap. 36x faster training. 29x smaller storage.</strong>
+<strong>-1.7% quality gap. 8x faster training. 29x smaller storage.</strong>
 </div>
 
 <table>
   <tr><th>Sigmoid Center</th><th>Spark Loss</th><th>vs Dense</th><th>Speedup</th><th>Size Reduction</th></tr>
   <tr><td>0.35</td><td>0.6624</td><td>-1.8%</td><td>8x</td><td>29x</td></tr>
-  <tr><td>0.45</td><td>0.6615</td><td>-1.7%</td><td>28x</td><td>29x</td></tr>
-  <tr><td>0.50</td><td>0.6638</td><td>-2.1%</td><td>30x</td><td>29x</td></tr>
-  <tr><td>0.55</td><td>0.6629</td><td>-1.9%</td><td>34x</td><td>29x</td></tr>
-  <tr><td>0.60</td><td>0.6625</td><td>-1.9%</td><td>35x</td><td>29x</td></tr>
-  <tr><td><strong>0.65</strong></td><td><strong>0.6615</strong></td><td><strong>-1.7%</strong></td><td><strong>36x</strong></td><td><strong>29x</strong></td></tr>
+  <tr><td>0.45</td><td>0.6615</td><td>-1.7%</td><td>8x</td><td>29x</td></tr>
+  <tr><td>0.50</td><td>0.6638</td><td>-2.1%</td><td>8x</td><td>29x</td></tr>
+  <tr><td>0.55</td><td>0.6629</td><td>-1.9%</td><td>8x</td><td>29x</td></tr>
+  <tr><td>0.60</td><td>0.6625</td><td>-1.9%</td><td>8x</td><td>29x</td></tr>
+  <tr><td><strong>0.65</strong></td><td><strong>0.6615</strong></td><td><strong>-1.7%</strong></td><td><strong>8x</strong></td><td><strong>29x</strong></td></tr>
 </table>
 
 <p>Dense baseline gap: 0.6504 (consistent ±0.0001 across runs).</p>
 
 <p><img src="spark-benchmark.png" alt="Spark Engine benchmark terminal output" style="max-width:100%;border:1px solid var(--border);border-radius:6px;margin:1rem 0;"></p>
 
-<p>The result is stable. Six independent runs, six different hyperparameter settings, all within a 0.002 loss band. The optimum is at the right edge of the curve. The outlier on the left edge (c=0.35, 8x speedup) is the wrong end - aggressive early growth makes the model spend too much time near full capacity. The schedule matters. 65% is where it works best and that's reproducible.</p>
+<p>The result is stable. Six independent runs, six different hyperparameter settings, all within a 0.002 loss band. The speedup is consistent at 8x across all centers — the optimizer state overhead (AdamW momentum and variance tracking for all pre-allocated parameters) dominates the runtime, not the forward pass FLOPs. At lower ranks, the matmul savings are real but the optimizer loops over the same number of parameters regardless of which are active. The quality gap is what the schedule controls — earlier growth centers give the model more time at full capacity to close the gap, but this tasks converges fast enough that the difference is negligible.</p>
 
 <hr>
 
@@ -143,7 +143,7 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 
 <h2>What I'm Building Toward</h2>
 
-<p>The Spark Engine is the third piece of a larger system. The first piece was compression (44x, equal quality). The second was progressive depth on transformers (2x, better quality). The third is this: progressive depth + progressive rank on the same schedule, 35x faster training with near-parity quality.</p>
+<p>The Spark Engine is the third piece of a larger system. The first piece was compression (44x, equal quality). The second was progressive depth on transformers (2x, better quality). The third is this: progressive depth + progressive rank on the same schedule, 8x faster training with near-parity quality.</p>
 
 <p>The next step is combining Spark Engine with the 44x transformer compression result — progressive depth/rank during training, compressed storage after. Those two pieces have been verified separately. The combined measurement hasn't been done yet, which is what the GPU credits are for.</p>
 
