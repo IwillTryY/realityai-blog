@@ -82,7 +82,7 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 
 <p>The dense model: 94.9 million parameters, full capacity from step one.</p>
 
-<p>The Spark model: 3.3 million stored parameters at final capacity. But stored parameters are not the full story - at early training (depth=1, rank=3), the active matmul cost is approximately 1/80th of a full step. The model only pays for the capacity it actually uses at any given moment.</p>
+<p>The Spark model: 3.3 million stored parameters at final capacity (for this 10-layer, ff=3072 MLP configuration). But stored parameters are not the full story - at early training (depth=1, rank=3), the active matmul cost is approximately 1/80th of a full step. The model only pays for the capacity it actually uses at any given moment.</p>
 
 <div class="result-box">
 <strong>Best result (center=0.65):</strong> 0.6615 Spark loss vs 0.6504 dense loss.
@@ -141,7 +141,9 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 
 <p>The Spark Engine is the third piece of a larger system. The first piece was compression (44x, equal quality). The second was progressive depth on transformers (2x, better quality). The third is this: progressive depth + progressive rank on the same schedule, 35x faster training with near-parity quality.</p>
 
-<p>Combined, these techniques represent an estimated 200-300x reduction in the effective cost of training a transformer from scratch. The self-play correction loop - where the model generates its own training data and the Python compiler acts as verifier - is the fourth piece.</p>
+<p>The next step is combining Spark Engine with the 44x transformer compression result — progressive depth/rank during training, compressed storage after. Those two pieces have been verified separately. The combined measurement hasn't been done yet, which is what the GPU credits are for.</p>
+
+<p>The self-play correction loop — where the model generates its own training data and the Python compiler acts as verifier — is the fourth piece. Infrastructure exists, not yet wired at scale.</p>
 
 <p>What I need next is GPU time to verify Spark Engine on transformers at scale. This is where Verda's content credit program comes in: one post, one demo, one more data point.</p>
 
