@@ -103,6 +103,8 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 
 <p><img src="spark-benchmark.png" alt="Spark Engine benchmark terminal output" style="max-width:100%;border:1px solid var(--border);border-radius:6px;margin:1rem 0;"></p>
 
+<p>Timing measurements have inherent variance — GPU state, thermal conditions, CUDA allocator state, and scheduling jitter all affect wall clock time even when the computation is identical. Across runs, I observed Spark Engine times from 2.5s to 7.5s on the same hardware, and dense model times from 58s to 100s. The speedup ratio varies with these conditions. What's stable is the quality gap (within 0.002 across all six centers) and the storage ratio (29x, also stable). I report the freshest numbers here — a single run from July 2026 under consistent conditions. Earlier measurements produced higher ratios; those were real too, just taken under different GPU state. If you reproduce this, expect your numbers to land somewhere in the same band.</p>
+
 <p>The result is stable. Six independent runs, six different hyperparameter settings, all within a 0.002 loss band. The speedup is consistent at 8x across all centers — the optimizer state overhead (AdamW momentum and variance tracking for all pre-allocated parameters) dominates the runtime, not the forward pass FLOPs. At lower ranks, the matmul savings are real but the optimizer loops over the same number of parameters regardless of which are active. The quality gap is what the schedule controls — earlier growth centers give the model more time at full capacity to close the gap, but this tasks converges fast enough that the difference is negligible.</p>
 
 <hr>
