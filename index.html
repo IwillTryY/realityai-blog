@@ -112,7 +112,7 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 <p>The measurements are on an MLP. Transformers are the target. Here's the honest status of every sub-technique:</p>
 
 <ul>
-  <li><strong>Progressive depth on transformers:</strong> verified. 2x faster, 5.5% better quality on a 4-layer transformer with Shakespeare training data. Real text, same-seed head-to-head.<br><br></li>
+  <li><strong>Progressive depth on transformers:</strong> verified. 2x faster, ~5% better quality on a 4-layer transformer with Shakespeare training data. Re-verified July 2026. Real text, same-seed head-to-head.<br><br></li>
   <li><strong>Progressive rank on attention:</strong> partially solved. The near-zero seeding fix resolves the softmax corruption issue. The mechanism should transfer. It hasn't been verified on a real transformer yet.<br><br></li>
   <li><strong>Progressive rank on feedforward:</strong> fully verified on MLP. Feedforward layers in transformers are MLPs - they share the same linear + activation structure. Transfer is expected but not yet measured.<br><br></li>
   <li><strong>Compression (weight tying + sparse/low-rank + FP8):</strong> verified on transformers. 44x compression with zero quality loss, measured on a 6-layer transformer against dense baseline.<br><br></li>
