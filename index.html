@@ -48,7 +48,7 @@
 
 <p>Standard neural network training is wasteful by design. Every layer runs at full capacity from step one, even though early training doesn't need that capacity. The Spark Engine fixes this by progressively growing two things on a coordinated schedule: <strong>depth</strong> (the number of active layers) and <strong>rank</strong> (the information capacity of each weight matrix).</p>
 
-<p>If this sounds obvious, it is. But making it work required solving two problems that killed earlier attempts: how to activate new capacity without disrupting existing training, and where to apply each growth mechanism so it doesn't corrupt the architecture.</p>
+<p>The idea is simple. Making it work took solving two problems that killed my first few attempts: how to activate new capacity without disrupting existing training, and where to apply each growth mechanism so it doesn't corrupt the architecture.</p>
 
 <hr>
 
@@ -56,7 +56,7 @@
 
 <h3>1. Progressive Depth</h3>
 
-<p>The model starts as a single layer. Every N steps, a new layer activates on a sigmoid schedule. Early training runs at 1/10th the compute of the final model. Layers are pre-allocated at initialization - activating a new layer flips a mask bit. Zero reallocation cost, zero memory fragmentation, zero performance cliff when growth occurs.</p>
+<p>The model starts as a single layer. Every N steps, a new layer activates on a sigmoid schedule. Early training runs at 1/10th the compute of the final model. Layers are pre-allocated at initialization - activating a new layer flips a mask bit. No reallocation, no memory fragmentation, no performance cliff when the model grows.</p>
 
 <h3>2. Progressive Rank</h3>
 
@@ -101,7 +101,7 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 
 <p>Dense baseline gap: 0.6504 (consistent ±0.0001 across runs).</p>
 
-<p>The result is stable. Six independent runs, six different hyperparameter settings, all within a 0.002 loss band. The optimum is at the right edge of the curve. The outlier on the left edge (c=0.35, 8x speedup) is the wrong end - aggressive early growth makes the model spend too much time near full capacity. The schedule matters and the peak is reproducible.</p>
+<p>The result is stable. Six independent runs, six different hyperparameter settings, all within a 0.002 loss band. The optimum is at the right edge of the curve. The outlier on the left edge (c=0.35, 8x speedup) is the wrong end - aggressive early growth makes the model spend too much time near full capacity. The schedule matters. 65% is where it works best and that's reproducible.</p>
 
 <hr>
 
@@ -145,7 +145,7 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
 
 <p>The self-play correction loop — where the model generates its own training data and the Python compiler acts as verifier — is the fourth piece. Infrastructure exists, not yet wired at scale.</p>
 
-<p>What I need next is GPU time to verify Spark Engine on transformers at scale. This is where Verda's content credit program comes in: one post, one demo, one more data point.</p>
+<p>What I need next is GPU time to verify Spark Engine on transformers at scale. That's what I need Verda's content credit program for — GPU time to run the Spark Engine on a transformer and see if the numbers hold at scale.</p>
 
 <hr>
 
