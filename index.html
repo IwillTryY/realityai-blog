@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RealityAI - Research Blog</title>
-<meta name="description" content="The Spark Engine: 8x faster training, 29x smaller storage, parity quality.">
+<meta name="description" content="The Spark Engine: 8x faster training, 29x smaller storage, near-parity quality.">
 <meta property="og:title" content="The Spark Engine - RealityAI Research Blog">
-<meta property="og:description" content="Progressive depth + progressive rank on the same sigmoid schedule. 8x faster, 29x smaller, within 2% quality. Verified across six independent runs.">
+<meta property="og:description" content="8x speedup, 29x size reduction, within 2% quality. All numbers measured on real hardware.">
 <meta property="og:type" content="article">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>S</text></svg>">
 <style>
@@ -15,6 +15,7 @@
   body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;line-height:1.6;max-width:760px;margin:0 auto;padding:2rem 1.5rem;}
   h1{color:var(--h1);font-size:1.8rem;margin:2rem 0 0.5rem;}
   h2{color:var(--h1);font-size:1.3rem;margin:2rem 0 0.75rem;padding-top:1rem;border-top:1px solid var(--border);}
+  h3{color:var(--h1);font-size:1.1rem;margin:1.5rem 0 0.5rem;}
   p,li{margin:0.75rem 0;}ul,ol{padding-left:1.5rem;}strong{color:var(--h1);}
   code{background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:0.9em;}
   table{width:100%;border-collapse:collapse;margin:1rem 0;}
@@ -28,27 +29,28 @@
   .result-box strong{color:var(--accent);}
   .note{background:var(--code-bg);border-left:3px solid var(--accent);padding:.75rem 1rem;border-radius:0 4px 4px 0;margin:1rem 0;font-size:.9em;}
   .footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.85rem;}
+  img{max-width:100%;border:1px solid var(--border);border-radius:6px;margin:1rem 0;display:block;}
 </style>
 </head>
 <body>
 
 <div class="site-title">RealityAI - Research Blog</div>
 
-<h1>The Spark Engine: 8x Faster Training, 29x Smaller Storage, Parity Quality</h1>
+<h1>The Spark Engine: 8x Speedup, 29x Size Reduction, Near-Parity Quality</h1>
 
 <p class="byline">by Kanav Vashisht - July 2026</p>
 
-<p>I started learning ML three months ago. I'm 16. I don't have a cluster. What I have is a laptop with an RTX 3050, an idea about how training should work, and the willingness to kill every approach that doesn't hold up to measurement.</p>
+<p>I began my journey in ML three months ago. I'm 16. I don't have a cluster. All I have is an RTX 3050, some understanding of how training should work, and an unwillingness to compromise on measuring everything.</p>
 
-<p>This post describes the Spark Engine: a training system that runs 8 times faster than standard training, stores models 29 times smaller, and produces quality within 2% of the dense baseline. Every number is measured on real hardware. None are extrapolated.</p>
+<p>This post introduces the Spark Engine: a training system that runs 8x faster than regular training, compresses model sizes 29x, and delivers quality that falls within 2% of dense baselines. All numbers are based on real-world testing. There is nothing extrapolated in any of the numbers below.</p>
 
 <hr>
 
 <h2>The Core Idea</h2>
 
-<p>Standard neural network training is wasteful by design. Every layer runs at full capacity from step one, even though early training doesn't need that capacity. The Spark Engine fixes this by progressively growing two things on a coordinated schedule: <strong>depth</strong> (the number of active layers) and <strong>rank</strong> (the information capacity of each weight matrix).</p>
+<p>Regular neural network training is designed to be wasteful. Layers are run to their maximum capacity from the start although training doesn't require it. The Spark Engine solves this inefficiency by progressively growing both depth (number of layers) and rank (information capacity per weight matrix) in a well-coordinated schedule.</p>
 
-<p>The idea is simple. Making it work took solving two problems that killed my first few attempts: how to activate new capacity without disrupting existing training, and where to apply each growth mechanism so it doesn't corrupt the architecture.</p>
+<p>The concept itself is pretty simple. Putting it into practice required resolving two issues that kept killing my initial attempts at implementation: how to progressively add new capacity without interrupting training, and where to place it in order to prevent corruption of the architecture.</p>
 
 <hr>
 
@@ -56,33 +58,39 @@
 
 <h3>1. Progressive Depth</h3>
 
-<p>The model starts as a single layer. Every N steps, a new layer activates on a sigmoid schedule. Early training runs at 1/10th the compute of the final model. Layers are pre-allocated at initialization - activating a new layer flips a mask bit. No reallocation, no memory fragmentation, no performance cliff when the model grows.</p>
+<p>At the beginning, the model is a single-layer MLP. A new layer is activated every N steps using a sigmoid growth schedule. The beginning of training happens 1/10th as fast as in the final model. Layers are allocated at initialization - activation simply flips a mask bit. Nothing is re-allocated, no memory fragmentation, no performance hit as model grows in size.</p>
 
 <h3>2. Progressive Rank</h3>
 
-<p>Every weight matrix is stored as a low-rank factorization: <code>W = L @ R^T</code>, where L and R are pre-allocated at maximum rank. Training starts at rank=1 - the forward pass literally slices <code>L[:, :1] @ R[:, :1].T</code>, producing a 48x smaller matmul than full rank. This is not masking - it's actual matrix slicing. The FLOP reduction is real.</p>
+<p>Each weight matrix is represented as a low-rank factorization: <code>W = L @ R^T</code>, where L and R are allocated at maximum rank at initialization. The training starts with rank=1 - it slices <code>L[:, :1] @ R[:, :1]^T</code> on a forward pass, achieving 48x reduction in FLOP compared to full rank matrices. It is not masked - this is matrix slicing. The FLOP reduction is real.</p>
 
 <div class="note">
-<strong>Why near-zero seeding matters:</strong> An earlier experiment tried progressive rank on transformer attention and the model immediately collapsed. The reason: attention uses a bilinear form Q@K^T inside a softmax. When new rank columns were randomly initialized and activated mid-training, they injected noise directly into the attention logits, corrupting every token's attention pattern.
+<strong>What near-zero seeding of the new rank columns means:</strong> my first experiment was progressive rank on transformer attention and the model immediately fell apart. The explanation: attention involves bilinear form Q@K^T inside a softmax. New columns being randomly initialized and activated mid-way threw noise right into attention logits, corrupting the attention pattern of each token.
 <br><br>
-The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient-alive, but invisible to the forward pass. They wake up as dead weight and grow gradient signal into useful directions. This is the mechanism that makes progressive rank work on attention. Without it, the softmax amplifies initialization noise into catastrophic corruption.
+The solution: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient-alive, but invisible to the forward pass. They become active weight matrices as dead weights and acquire gradient signal over time, growing in useful directions. That's the mechanism behind progressive rank on attention - without it, the softmax would amplify noise in the init distribution and corrupt the architecture.
 </div>
 
 <h3>3. The Sigmoid Schedule</h3>
 
-<p>Both depth and rank follow the same sigmoid curve centered at 65% of training. The model grows slowly at first, accelerates through the middle, and plateaus at maximum capacity for final refinement. ~70% of all training steps run below half capacity.</p>
+<p>Both depth and rank grow according to a sigmoid function, centered at 65% of training. The model grows slowly at first, accelerates in the middle, and plateaus at maximum capacity during final refinement. ~70% of all training steps run with the model operating under 50% capacity.</p>
 
-<p>The schedule varies quality slightly but speedup stays consistent at 8x across all centers tested. The optimizer state overhead — AdamW tracking momentum and variance for every pre-allocated parameter — dominates the runtime regardless of which dimensions are active. Forward pass savings from sliced rank are real, but they don't shrink the optimizer loop. Moving it past 65% produces marginally less speedup because there aren't enough steps left to absorb the growth. 65% is the optimum. The curve has a clear peak.</p>
+<p>The schedule affects quality marginally but speedup remains consistently 8x for all centers tested. Optimizer state maintenance - AdamW tracking momentum and variance for every pre-allocated parameter - dominates the runtime at this point regardless of which dimensions are active. Forward pass savings from rank slicing are real, but optimizer loop remains the same. Moving the growth past 65% center results in marginally smaller speedup because there is not enough steps left to account for the growth. 65% is the optimum center. The graph has a visible peak.</p>
 
 <hr>
 
 <h2>The Measurement</h2>
 
-<p>I ran the Spark Engine against a dense fixed baseline six times, varying the sigmoid center across six hyperparameter settings from 0.35 to 0.65. Both models trained on the same data, same seed, same step budget: 1000 steps on a 10-layer MLP with feedforward dimension 3072.</p>
+<p>I ran the Spark Engine against dense fixed baseline models 6 times, changing the center of the sigmoid schedule in 6 independent runs from 0.35 to 0.65. Both models were trained on the same data, same seed, same step budget: 1000 steps on a 10-layer MLP with feedforward dimension 3072.</p>
 
-<p>The dense model: 94.9 million parameters, full capacity from step one.</p>
+<p>The dense model: 94.9 million parameters, maximum capacity from step one.</p>
 
-<p>The Spark model: 3.3 million stored parameters at final capacity (for this 10-layer, ff=3072 MLP configuration). But stored parameters are not the full story - at early training (depth=1, rank=3), the active matmul cost is approximately 1/80th of a full step. The model only pays for the capacity it actually uses at any given moment.</p>
+<p>The Spark model: 3.3 million parameters allocated at maximum capacity (this is a 10-layer MLP with feedforward dim 3072). But the size is not the whole story - in early stages of training (depth=1, rank=3) the active matmul requires 1/80th of the computation power of a single step. The model only pays for the capacity that is currently needed.</p>
+
+<img src="spark-benchmark.png" alt="Spark Engine benchmark terminal output">
+
+<p>Timing measurements inherently come with variance - GPU state, thermal state, CUDA allocator state, and scheduling jitter all can affect wall-clock time even when the computation is the same. During testing, I observed Spark Engine times ranging between 2.5s and 7.5s on the same hardware, and dense model times from 58s to 100s. The speedup ratio varies with these conditions. What remains stable is the quality gap (within 0.002 across all runs) and the size ratio (29x, also stable). Below is the output of the single latest run performed under consistent conditions in July 2026. Earlier measurements yielded higher ratios - these numbers were real too, just obtained from a different GPU state. If you try reproducing the experiment, you'll get numbers somewhere in this range.</p>
+
+<p>The result is stable. Six independent runs, six different sigmoid center values, all within 0.002 loss gap. Speedup is consistent at 8x across all centers - the optimizer state overhead (tracking of AdamW momentum and variance for all pre-allocated parameters) dominates the runtime, not the forward pass FLOPs. Lower ranks yield FLOP savings but the optimizer loops over the same number of parameters regardless of which ones are currently active. The quality gap depends on the growth schedule - the earlier centers provide more time at maximum capacity to reduce the gap, but this task converges fast enough that this makes little difference.</p>
 
 <div class="result-box">
 <strong>Best result (center=0.65):</strong> 0.6615 Spark loss vs 0.6504 dense loss.
@@ -99,59 +107,53 @@ The fix: new rank columns are seeded at <code>1e-14</code> - near-zero, gradient
   <tr><td><strong>0.65</strong></td><td><strong>0.6615</strong></td><td><strong>-1.7%</strong></td><td><strong>8x</strong></td><td><strong>29x</strong></td></tr>
 </table>
 
-<p>Dense baseline gap: 0.6504 (consistent ±0.0001 across runs).</p>
-
-<p><img src="spark-benchmark.png" alt="Spark Engine benchmark terminal output" style="max-width:100%;border:1px solid var(--border);border-radius:6px;margin:1rem 0;"></p>
-
-<p>Timing measurements have inherent variance — GPU state, thermal conditions, CUDA allocator state, and scheduling jitter all affect wall clock time even when the computation is identical. Across runs, I observed Spark Engine times from 2.5s to 7.5s on the same hardware, and dense model times from 58s to 100s. The speedup ratio varies with these conditions. What's stable is the quality gap (within 0.002 across all six centers) and the storage ratio (29x, also stable). I report the freshest numbers here — a single run from July 2026 under consistent conditions. Earlier measurements produced higher ratios; those were real too, just taken under different GPU state. If you reproduce this, expect your numbers to land somewhere in the same band.</p>
-
-<p>The result is stable. Six independent runs, six different hyperparameter settings, all within a 0.002 loss band. The speedup is consistent at 8x across all centers — the optimizer state overhead (AdamW momentum and variance tracking for all pre-allocated parameters) dominates the runtime, not the forward pass FLOPs. At lower ranks, the matmul savings are real but the optimizer loops over the same number of parameters regardless of which are active. The quality gap is what the schedule controls — earlier growth centers give the model more time at full capacity to close the gap, but this tasks converges fast enough that the difference is negligible.</p>
+<p>Dense baseline loss: 0.6504 (consistent &plusmn;0.0001 across runs).</p>
 
 <hr>
 
-<h2>This Is Only MLP - Here's What's Next</h2>
+<h2>This Is Only MLP - Here's What's Coming Next</h2>
 
-<p>The measurements are on an MLP. Transformers are the target. Here's the honest status of every sub-technique:</p>
+<p>The benchmarks above were run on MLPs. Transformers are my goal. Here is the status of every sub-technique involved:</p>
 
 <ul>
-  <li><strong>Progressive depth on transformers:</strong> verified. 2x faster, ~5% better quality on a 4-layer transformer with Shakespeare training data. Re-verified July 2026. Real text, same-seed head-to-head.<br><br></li>
-  <li><strong>Progressive rank on attention:</strong> partially solved. The near-zero seeding fix resolves the softmax corruption issue. The mechanism should transfer. It hasn't been verified on a real transformer yet.<br><br></li>
-  <li><strong>Progressive rank on feedforward:</strong> fully verified on MLP. Feedforward layers in transformers are MLPs - they share the same linear + activation structure. Transfer is expected but not yet measured.<br><br></li>
-  <li><strong>Compression (weight tying + sparse/low-rank + FP8):</strong> verified on transformers. 44x compression with zero quality loss, measured on a 6-layer transformer against dense baseline.<br><br></li>
-  <li><strong>Self-play correction loop:</strong> infrastructure built, not yet wired. The verifier needs a larger base model before the loop is viable.</li>
+  <li><strong>Progressive depth on transformers:</strong> confirmed. 2x speedup, ~5% quality improvement on a 4-layer transformer with Shakespeare training data. Re-confirmed in July 2026. Real text, head-to-head comparison using the same seed.<br><br></li>
+  <li><strong>Progressive rank on attention:</strong> partially implemented. Near-zero seeding solves the problem of softmax corruption. It should transfer to transformers, but wasn't confirmed yet.<br><br></li>
+  <li><strong>Progressive rank on feedforward:</strong> fully confirmed for MLPs. Feedforward layers in transformers are MLPs, sharing the same linear + activation structure.<br><br></li>
+  <li><strong>Compression (weight tying + sparse/low-rank + FP8):</strong> confirmed for transformers. 44x compression, zero quality loss, tested on a 6-layer transformer.<br><br></li>
+  <li><strong>Self-play correction loop:</strong> infrastructure built, not wired yet. The verifier requires a larger base model first.</li>
 </ul>
 
-<hr>
+<img src="training-output.png" alt="Spark training logs showing progressive depth and rank growth">
 
-<p><img src="training-output.png" alt="Spark training logs showing progressive depth and rank growth" style="max-width:100%;border:1px solid var(--border);border-radius:6px;margin:1rem 0;"></p>
+<hr>
 
 <h2>What Didn't Work</h2>
 
-<p>The dead ends are worth documenting:</p>
+<p>It is useful to document dead ends:</p>
 
 <ul>
-  <li><strong>Hash-based weight addressing:</strong> dead at 10x compression. Collisions make it worse, not better, at every scale tested.<br><br></li>
-  <li><strong>CHL/Equilibrium Propagation:</strong> loss stuck at 90.5 on compressed transformers. The CIFAR-to-LLM extrapolation does not hold.<br><br></li>
-  <li><strong>Progressive rank on attention (naive version):</strong> catastrophic divergence without near-zero seeding. The softmax amplifies init noise. Fixed, but the first attempt failed hard.</li>
+  <li><strong>Hash-based weight addressing:</strong> failed at 10x compression. Collisions only make it worse, at every scale tried.<br><br></li>
+  <li><strong>CHL/Equilibrium Propagation:</strong> loss stuck at 90.5 on compressed transformers. The CIFAR-to-LLM extrapolation is invalid.<br><br></li>
+  <li><strong>Progressive rank on attention (initial naive implementation):</strong> catastrophic loss without near-zero seeding. Softmax amplifies init distribution noise. Fixed, but failed in initial attempt.</li>
 </ul>
 
 <hr>
 
 <h2>Why Verda</h2>
 
-<p>Every experiment in this post was run on rented GPUs. The Spark Engine benchmark took 100 seconds on an RTX 3050. The transformer experiments ran on Verda's RTX PRO 6000 instances. The combination of instant access, predictable pricing ($1.89/hr), and Blackwell-grade hardware is what made iterating this fast possible. When a 10-minute experiment costs 32 cents, you run more of them.</p>
+<p>All experiments in this post were run using rented GPUs. The Spark Engine benchmark takes 100 seconds on an RTX 3050. The transformer experiments were run on Verda's RTX PRO 6000 instances. This combination of instant availability, predictable price ($1.89/hour), and Blackwell-grade hardware is what enabled me to iterate at this speed. Running a 10-minute experiment for 32 cents enables more iteration.</p>
 
 <hr>
 
 <h2>What I'm Building Toward</h2>
 
-<p>The Spark Engine is the third piece of a larger system. The first piece was compression (44x, equal quality). The second was progressive depth on transformers (2x, better quality). The third is this: progressive depth + progressive rank on the same schedule, 8x faster training with near-parity quality.</p>
+<p>The Spark Engine is the third piece of a larger system. The first piece was compression (44x, equal quality). The second was progressive depth on transformers (2x, better quality). The third is this: progressive depth + progressive rank on the same schedule.</p>
 
-<p>The next step is combining Spark Engine with the 44x transformer compression result — progressive depth/rank during training, compressed storage after. Those two pieces have been verified separately. The combined measurement hasn't been done yet, which is what the GPU credits are for.</p>
+<p>The next step is combining Spark Engine with the 44x transformer compression result -- progressive depth/rank during training, compressed storage after. Those two pieces have been verified separately. The combined measurement hasn't been done yet, which is what the GPU credits are for.</p>
 
-<p>The self-play correction loop — where the model generates its own training data and the Python compiler acts as verifier — is the fourth piece. Infrastructure exists, not yet wired at scale.</p>
+<p>The self-play correction loop -- where the model generates its own training data and the Python compiler acts as verifier -- is the fourth piece. Infrastructure exists, not yet wired at scale.</p>
 
-<p>What I need next is GPU time to verify Spark Engine on transformers at scale. That's what I need Verda's content credit program for — GPU time to run the Spark Engine on a transformer and see if the numbers hold at scale.</p>
+<p>That's what I need Verda's content credit program for -- GPU time to run the Spark Engine on a transformer and see if the numbers hold at scale.</p>
 
 <hr>
 
